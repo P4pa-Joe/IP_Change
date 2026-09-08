@@ -92,6 +92,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
     <string>$BUILD_DATE</string>
     <key>IPChangeSwiftVersion</key>
     <string>$SWIFT_VERSION</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>IP Change uses Terminal to open SSH and Telnet connections to hosts found by Scan Network.</string>
 $ICON_KEY_XML
 </dict>
 </plist>
