@@ -206,15 +206,21 @@ final class ProfilesWindowController: NSWindowController {
     @objc private func saveProfile() {
         guard let id = selectedProfileID else { return }
 
+        let isManual = modeControl.selectedSegment == 1
         let dnsServers = dnsField.stringValue
             .split(whereSeparator: { $0 == "," || $0.isWhitespace })
             .map(String.init)
             .filter { !$0.isEmpty }
 
+        if let error = validationError(isManual: isManual, dnsServers: dnsServers) {
+            presentError(title: "Invalid Profile", message: error)
+            return
+        }
+
         let profile = NetworkProfile(
             id: id,
             name: nameField.stringValue.isEmpty ? "Untitled Profile" : nameField.stringValue,
-            mode: modeControl.selectedSegment == 0 ? .dhcp : .manual,
+            mode: isManual ? .manual : .dhcp,
             ipAddress: ipField.stringValue,
             subnetMask: subnetField.stringValue,
             router: routerField.stringValue,
@@ -222,6 +228,30 @@ final class ProfilesWindowController: NSWindowController {
         )
         ProfileStore.shared.addOrUpdate(profile)
         reloadProfiles(selecting: id)
+    }
+
+    /// Catches malformed addresses before they reach `networksetup`, where
+    /// they'd otherwise surface as an opaque command-failure alert instead
+    /// of pointing at the specific field that's wrong.
+    private func validationError(isManual: Bool, dnsServers: [String]) -> String? {
+        if isManual {
+            guard IPv4Subnet.toUInt32(ipField.stringValue) != nil else {
+                return "\"\(ipField.stringValue)\" is not a valid IPv4 address."
+            }
+            guard IPv4Subnet.toUInt32(subnetField.stringValue) != nil else {
+                return "\"\(subnetField.stringValue)\" is not a valid subnet mask."
+            }
+            // The router field may legitimately be left empty (e.g.
+            // point-to-point links with no gateway), but if filled in it
+            // must be a real address.
+            if !routerField.stringValue.isEmpty, IPv4Subnet.toUInt32(routerField.stringValue) == nil {
+                return "\"\(routerField.stringValue)\" is not a valid router address."
+            }
+        }
+        for dns in dnsServers where IPv4Subnet.toUInt32(dns) == nil {
+            return "\"\(dns)\" is not a valid DNS server address."
+        }
+        return nil
     }
 
     @objc private func importProfiles() {

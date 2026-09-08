@@ -121,8 +121,12 @@ enum NetworkConfigurator {
         return String(data: data, encoding: .utf8) ?? ""
     }
 
+    /// `-setdhcp`, `-setmanual`, and `-setdnsservers` are silent on success;
+    /// any output at all — the exact wording of `networksetup`'s error
+    /// messages isn't something to rely on — means something went wrong.
     private static func validate(output: String) throws {
-        guard output.lowercased().contains("error") else { return }
-        throw NetworkConfiguratorError.commandFailed(output.trimmingCharacters(in: .whitespacesAndNewlines))
+        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        throw NetworkConfiguratorError.commandFailed(trimmed)
     }
 }
