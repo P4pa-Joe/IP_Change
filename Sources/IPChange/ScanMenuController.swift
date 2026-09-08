@@ -106,6 +106,12 @@ final class ScanMenuController: NSObject, NSMenuDelegate {
         let submenu = NSMenu()
         submenu.autoenablesItems = false
 
+        let copyItem = NSMenuItem(title: "Copy IP", action: #selector(copyIPTapped(_:)), keyEquivalent: "")
+        copyItem.target = self
+        copyItem.representedObject = host
+        submenu.addItem(copyItem)
+        submenu.addItem(.separator())
+
         let entries: [(title: String, port: Int, action: Selector)] = [
             ("HTTP", 80, #selector(connectHTTP(_:))),
             ("HTTPS", 443, #selector(connectHTTPS(_:))),
@@ -132,6 +138,11 @@ final class ScanMenuController: NSObject, NSMenuDelegate {
 
     @objc private func rescanTapped() {
         session.start()
+    }
+
+    @objc private func copyIPTapped(_ sender: NSMenuItem) {
+        guard let host = sender.representedObject as? ScanHost else { return }
+        HostConnector.copyIP(host)
     }
 
     @objc private func connectHTTP(_ sender: NSMenuItem) {

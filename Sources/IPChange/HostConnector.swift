@@ -25,6 +25,12 @@ enum HostConnector {
         runInTerminal(host, command: "telnet")
     }
 
+    static func copyIP(_ host: ScanHost) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(host.ipAddress, forType: .string)
+    }
+
     // MARK: - Private helpers
 
     private static func openInBrowser(_ host: ScanHost, scheme: String) {
