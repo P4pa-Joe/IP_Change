@@ -100,22 +100,31 @@ final class ScanMenuController: NSObject, NSMenuDelegate {
         return item
     }
 
+    /// Only offers protocols whose port was confirmed open on this host —
+    /// no point suggesting SSH to something that isn't listening on 22.
     private func connectSubmenu(for host: ScanHost) -> NSMenu {
         let submenu = NSMenu()
         submenu.autoenablesItems = false
 
-        let entries: [(String, Selector)] = [
-            ("HTTP", #selector(connectHTTP(_:))),
-            ("HTTPS", #selector(connectHTTPS(_:))),
-            ("SSH", #selector(connectSSH(_:))),
-            ("Telnet", #selector(connectTelnet(_:)))
+        let entries: [(title: String, port: Int, action: Selector)] = [
+            ("HTTP", 80, #selector(connectHTTP(_:))),
+            ("HTTPS", 443, #selector(connectHTTPS(_:))),
+            ("SSH", 22, #selector(connectSSH(_:))),
+            ("Telnet", 23, #selector(connectTelnet(_:)))
         ]
-        for (title, action) in entries {
+        for (title, port, action) in entries where host.openPorts.contains(port) {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
             item.target = self
             item.representedObject = host
             submenu.addItem(item)
         }
+
+        if submenu.items.isEmpty {
+            let item = NSMenuItem(title: "No Open Ports Detected", action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            submenu.addItem(item)
+        }
+
         return submenu
     }
 

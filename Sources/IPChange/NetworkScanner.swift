@@ -6,6 +6,9 @@ struct ScanHost: Equatable {
     var ipAddress: String
     var macAddress: String?
     var hostname: String?
+    /// Ports from `NetworkScanner.wellKnownPorts` found open on this host,
+    /// e.g. so the "connect" menu can only offer protocols that will work.
+    var openPorts: Set<Int> = []
 }
 
 /// Performs a ping sweep across an interface's subnet, reads MAC addresses
@@ -16,9 +19,14 @@ final class NetworkScanner {
 
     private static let maxHostsPerScan = 1024
     private static let maxConcurrentPings = 24
+    /// The ports the "connect" quick actions know how to use — kept here
+    /// alongside the sweep so a host's `openPorts` reflects exactly what a
+    /// probe was attempted for.
+    static let wellKnownPorts: [UInt16] = [80, 443, 22, 23]
 
     private var isCancelled = false
     private let hostnameQueue = DispatchQueue(label: "IPChange.NetworkScanner.hostname", attributes: .concurrent)
+    private let portsQueue = DispatchQueue(label: "IPChange.NetworkScanner.ports", attributes: .concurrent)
 
     func cancel() {
         isCancelled = true
@@ -32,6 +40,8 @@ final class NetworkScanner {
     ///   - onHostnameResolved: called on the main thread once a reverse
     ///     lookup (unicast DNS or mDNS/Bonjour for `.local` names) succeeds
     ///     for a previously-found host.
+    ///   - onPortsResolved: called on the main thread once at least one of
+    ///     `wellKnownPorts` is confirmed open on a previously-found host.
     ///   - completion: called on the main thread once every host has been
     ///     tested (or the scan was cancelled).
     func scan(
@@ -40,6 +50,7 @@ final class NetworkScanner {
         onProgress: @escaping (_ tested: Int, _ total: Int, _ found: Int) -> Void,
         onHostFound: @escaping (ScanHost) -> Void,
         onHostnameResolved: @escaping (_ ipAddress: String, _ hostname: String) -> Void,
+        onPortsResolved: @escaping (_ ipAddress: String, _ openPorts: Set<Int>) -> Void,
         completion: @escaping () -> Void
     ) {
         isCancelled = false
@@ -94,6 +105,13 @@ final class NetworkScanner {
                     guard !self.isCancelled, let hostname = Self.resolveHostname(host) else { return }
                     DispatchQueue.main.async { onHostnameResolved(host, hostname) }
                 }
+
+                self.portsQueue.async {
+                    guard !self.isCancelled else { return }
+                    let openPorts = Set(Self.wellKnownPorts.filter { Self.isPortOpen(host, port: $0) }.map { Int($0) })
+                    guard !self.isCancelled, !openPorts.isEmpty else { return }
+                    DispatchQueue.main.async { onPortsResolved(host, openPorts) }
+                }
             }
         }
 
@@ -145,6 +163,40 @@ final class NetworkScanner {
             return nil
         }
         return String(text[range])
+    }
+
+    /// Checks whether a TCP port accepts connections, via a non-blocking
+    /// `connect()` bounded by `poll()` rather than waiting out the OS's
+    /// full connect timeout (tens of seconds) on filtered ports.
+    private static func isPortOpen(_ host: String, port: UInt16, timeoutSeconds: Double = 0.3) -> Bool {
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_port = port.bigEndian
+        guard inet_pton(AF_INET, host, &address.sin_addr) == 1 else { return false }
+
+        let sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
+        guard sock >= 0 else { return false }
+        defer { Darwin.close(sock) }
+
+        let flags = fcntl(sock, F_GETFL, 0)
+        _ = fcntl(sock, F_SETFL, flags | O_NONBLOCK)
+
+        let connectResult = withUnsafePointer(to: &address) { pointer -> Int32 in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
+                connect(sock, sockaddrPointer, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        if connectResult == 0 { return true }
+        guard errno == EINPROGRESS else { return false }
+
+        var pollDescriptor = pollfd(fd: sock, events: Int16(POLLOUT), revents: 0)
+        guard poll(&pollDescriptor, 1, Int32(timeoutSeconds * 1000)) > 0 else { return false }
+
+        var socketError: Int32 = 0
+        var errorLength = socklen_t(MemoryLayout<Int32>.size)
+        getsockopt(sock, SOL_SOCKET, SO_ERROR, &socketError, &errorLength)
+        return socketError == 0
     }
 
     /// Reverse-resolves a hostname for a local IPv4 address. macOS routes

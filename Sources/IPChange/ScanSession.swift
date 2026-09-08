@@ -55,6 +55,11 @@ final class ScanSession {
                 self.hosts[index].hostname = hostname
                 self.onUpdate?()
             },
+            onPortsResolved: { [weak self] ipAddress, openPorts in
+                guard let self, let index = self.hosts.firstIndex(where: { $0.ipAddress == ipAddress }) else { return }
+                self.hosts[index].openPorts = openPorts
+                self.onUpdate?()
+            },
             completion: { [weak self] in
                 guard let self else { return }
                 self.isScanning = false
