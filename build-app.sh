@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST_DIR="${1:-$SCRIPT_DIR}"
 
 APP_DISPLAY_NAME="IP Change"
-APP_VERSION="26.3"
+APP_VERSION="26.3.1"
 BUNDLE_ID="com.ipchange.app"
 EXECUTABLE_NAME="IPChange"
 # The product name swift build actually emits — matches the executableTarget
