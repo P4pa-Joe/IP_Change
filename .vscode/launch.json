@@ -1,0 +1,44 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:IP-Change}",
+            "name": "Debug IPChange",
+            "target": "IPChange",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug IPChange"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:IP-Change}",
+            "name": "Release IPChange",
+            "target": "IPChange",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release IPChange"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:IP-Change}",
+            "name": "Debug IP Change",
+            "target": "IP Change",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug IP Change"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:IP-Change}",
+            "name": "Release IP Change",
+            "target": "IP Change",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release IP Change"
+        }
+    ]
+}
